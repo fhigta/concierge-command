@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Command Center | The Concierge Group</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.0/papaparse.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -893,36 +892,38 @@
     `).join('');
   }
 
-  function loadData() {
+  function processData(rows) {
+    renderStats(rows);
+    renderPipeline(rows);
+    renderAB(rows);
+    renderBatchChart(rows);
+    renderActivity(rows);
+  }
+
+  async function loadData() {
     document.getElementById('loading-overlay').style.display = 'flex';
+    try {
+      const resp = await fetch('https://jp-tracker.onrender.com/crm');
+      const json = await resp.json();
+      const rows = json.data || [];
+      const updatedAt = json.updated_at;
 
-    Papa.parse('./crm.csv', {
-      download: true,
-      header: true,
-      skipEmptyLines: true,
-      complete: function(results) {
-        const rows = results.data;
-        renderStats(rows);
-        renderPipeline(rows);
-        renderAB(rows);
-        renderBatchChart(rows);
-        renderActivity(rows);
-
-        const now = new Date();
-        document.getElementById('last-updated').textContent =
-          'Updated ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        document.getElementById('loading-overlay').style.display = 'none';
-      },
-      error: function(err) {
-        document.getElementById('loading-overlay').style.display = 'none';
-        document.getElementById('activity-tbody').innerHTML =
-          `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px;">
-            Could not load crm.csv — open this file from a local server or the same directory.<br>
-            <small style="color:var(--gray-text);">${err.message || ''}</small>
-          </td></tr>`;
+      if (updatedAt) {
+        document.getElementById('last-updated').textContent = 'Updated ' + new Date(updatedAt).toLocaleString();
       }
-    });
+
+      processData(rows);
+    } catch(e) {
+      console.error('Failed to load CRM data:', e);
+      document.getElementById('last-updated').textContent = 'Failed to load data';
+      document.getElementById('activity-tbody').innerHTML =
+        `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px;">
+          Could not load CRM data from Render.<br>
+          <small style="color:var(--gray-text);">${e.message || ''}</small>
+        </td></tr>`;
+    } finally {
+      document.getElementById('loading-overlay').style.display = 'none';
+    }
   }
 
   document.addEventListener('DOMContentLoaded', loadData);
