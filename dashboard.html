@@ -253,7 +253,7 @@
     /* ── STAT CARDS ──────────────────────────────────────── */
     .stats-row {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(8, 1fr);
       gap: 14px;
       margin-bottom: 28px;
     }
@@ -493,8 +493,11 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── RESPONSIVE ──────────────────────────────────────── */
+    @media (max-width: 1400px) {
+      .stats-row { grid-template-columns: repeat(4, 1fr); }
+    }
     @media (max-width: 1200px) {
-      .stats-row { grid-template-columns: repeat(3, 1fr); }
+      .stats-row { grid-template-columns: repeat(4, 1fr); }
     }
     @media (max-width: 900px) {
       #sidebar { transform: translateX(-100%); }
@@ -620,6 +623,16 @@
         <div class="stat-value" id="stat-unsub">—</div>
         <div class="stat-sub">status = UNSUBSCRIBED</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-label">Button Clicks</div>
+        <div class="stat-value" id="stat-clicks">—</div>
+        <div class="stat-sub">unique Calendly clicks</div>
+      </div>
+      <div class="stat-card gold-accent">
+        <div class="stat-label">Click-to-Book Rate</div>
+        <div class="stat-value" id="stat-click-book">—</div>
+        <div class="stat-sub">booked / clicks</div>
+      </div>
     </div>
 
     <!-- PIPELINE -->
@@ -643,6 +656,7 @@
             <div class="ab-angle">"The Neighbor Angle"</div>
             <div class="ab-stat-row"><span class="ab-stat-label">Emails Sent</span><span class="ab-stat-val" id="ab-a-sent">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Reply Rate</span><span class="ab-stat-val" id="ab-a-reply">—</span></div>
+            <div class="ab-stat-row"><span class="ab-stat-label">Click Rate</span><span class="ab-stat-val" id="ab-a-click">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Booking Rate</span><span class="ab-stat-val" id="ab-a-book">—</span></div>
           </div>
           <div class="ab-card version-b">
@@ -650,6 +664,7 @@
             <div class="ab-angle">"The Proof Angle"</div>
             <div class="ab-stat-row"><span class="ab-stat-label">Emails Sent</span><span class="ab-stat-val" id="ab-b-sent">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Reply Rate</span><span class="ab-stat-val" id="ab-b-reply">—</span></div>
+            <div class="ab-stat-row"><span class="ab-stat-label">Click Rate</span><span class="ab-stat-val" id="ab-b-click">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Booking Rate</span><span class="ab-stat-val" id="ab-b-book">—</span></div>
           </div>
         </div>
@@ -751,12 +766,13 @@
     return `<span class="ab-pill ${cls}">${upper}</span>`;
   }
 
-  function renderStats(rows) {
+  function renderStats(rows, stats) {
     const contacted   = rows.filter(r => r.initial_sent_date && r.initial_sent_date.trim()).length;
     const replies     = rows.filter(r => (r.reply_received || '').toLowerCase().trim() === 'yes').length;
     const active      = rows.filter(r => (r.status || '').toUpperCase().trim() === 'ACTIVE').length;
     const booked      = rows.filter(r => (r.status || '').toUpperCase().trim() === 'BOOKED').length;
     const unsub       = rows.filter(r => (r.status || '').toUpperCase().trim() === 'UNSUBSCRIBED').length;
+    const clicks      = (stats && stats.unique_clicks != null) ? stats.unique_clicks : null;
 
     document.getElementById('stat-contacted').textContent  = contacted;
     document.getElementById('stat-replies').textContent    = replies;
@@ -764,6 +780,8 @@
     document.getElementById('stat-booked').textContent     = booked;
     document.getElementById('stat-conversion').textContent = pct(booked, contacted);
     document.getElementById('stat-unsub').textContent      = unsub;
+    document.getElementById('stat-clicks').textContent     = clicks != null ? clicks : '—';
+    document.getElementById('stat-click-book').textContent = clicks != null ? pct(booked, clicks) : '—';
   }
 
   function renderPipeline(rows) {
@@ -796,18 +814,22 @@
     });
   }
 
-  function renderAB(rows) {
+  function renderAB(rows, stats) {
     const hasAB = rows.some(r => r.ab_version && r.ab_version.trim());
     if (!hasAB) return;
+
+    const clicksByVersion = (stats && stats.clicks_by_version) ? stats.clicks_by_version : {};
 
     ['A', 'B'].forEach(v => {
       const group  = rows.filter(r => (r.ab_version || '').toUpperCase().trim() === v);
       const sent   = group.filter(r => r.initial_sent_date && r.initial_sent_date.trim()).length;
       const repls  = group.filter(r => (r.reply_received || '').toLowerCase().trim() === 'yes').length;
       const books  = group.filter(r => (r.status || '').toUpperCase().trim() === 'BOOKED').length;
+      const clicks = clicksByVersion[v] != null ? clicksByVersion[v] : null;
       const lv = v.toLowerCase();
       document.getElementById(`ab-${lv}-sent`).textContent  = sent;
       document.getElementById(`ab-${lv}-reply`).textContent = pct(repls, sent);
+      document.getElementById(`ab-${lv}-click`).textContent = clicks != null ? pct(clicks, sent) : '—';
       document.getElementById(`ab-${lv}-book`).textContent  = pct(books, sent);
     });
   }
@@ -892,10 +914,10 @@
     `).join('');
   }
 
-  function processData(rows) {
-    renderStats(rows);
+  function processData(rows, stats) {
+    renderStats(rows, stats);
     renderPipeline(rows);
-    renderAB(rows);
+    renderAB(rows, stats);
     renderBatchChart(rows);
     renderActivity(rows);
   }
@@ -903,18 +925,23 @@
   async function loadData() {
     document.getElementById('loading-overlay').style.display = 'flex';
     try {
-      const resp = await fetch('https://jp-tracker.onrender.com/crm');
-      const json = await resp.json();
-      const rows = json.data || [];
-      const updatedAt = json.updated_at;
+      const [crmResp, statsResp] = await Promise.all([
+        fetch('https://jp-tracker.onrender.com/crm'),
+        fetch('https://jp-tracker.onrender.com/stats'),
+      ]);
+      const crmJson   = await crmResp.json();
+      const statsJson = statsResp.ok ? await statsResp.json() : {};
+
+      const rows      = crmJson.data || [];
+      const updatedAt = crmJson.updated_at;
 
       if (updatedAt) {
         document.getElementById('last-updated').textContent = 'Updated ' + new Date(updatedAt).toLocaleString();
       }
 
-      processData(rows);
+      processData(rows, statsJson);
     } catch(e) {
-      console.error('Failed to load CRM data:', e);
+      console.error('Failed to load data:', e);
       document.getElementById('last-updated').textContent = 'Failed to load data';
       document.getElementById('activity-tbody').innerHTML =
         `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px;">
