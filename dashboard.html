@@ -253,7 +253,7 @@
     /* ── STAT CARDS ──────────────────────────────────────── */
     .stats-row {
       display: grid;
-      grid-template-columns: repeat(8, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 14px;
       margin-bottom: 28px;
     }
@@ -494,9 +494,9 @@
 
     /* ── RESPONSIVE ──────────────────────────────────────── */
     @media (max-width: 1400px) {
-      .stats-row { grid-template-columns: repeat(4, 1fr); }
+      .stats-row { grid-template-columns: repeat(5, 1fr); }
     }
-    @media (max-width: 1200px) {
+    @media (max-width: 1100px) {
       .stats-row { grid-template-columns: repeat(4, 1fr); }
     }
     @media (max-width: 900px) {
@@ -598,6 +598,26 @@
         <div class="stat-value" id="stat-contacted">—</div>
         <div class="stat-sub">initial email sent</div>
       </div>
+      <div class="stat-card gold-accent">
+        <div class="stat-label">Unique Opens</div>
+        <div class="stat-value" id="stat-opens">—</div>
+        <div class="stat-sub">pixel fires tracked</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Open Rate</div>
+        <div class="stat-value" id="stat-open-rate">—</div>
+        <div class="stat-sub">opens / contacted</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Calendly Clicks</div>
+        <div class="stat-value" id="stat-clicks">—</div>
+        <div class="stat-sub">unique button clicks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Click Rate</div>
+        <div class="stat-value" id="stat-click-rate">—</div>
+        <div class="stat-sub">clicks / contacted</div>
+      </div>
       <div class="stat-card">
         <div class="stat-label">Total Replies</div>
         <div class="stat-value" id="stat-replies">—</div>
@@ -623,16 +643,6 @@
         <div class="stat-value" id="stat-unsub">—</div>
         <div class="stat-sub">status = UNSUBSCRIBED</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Button Clicks</div>
-        <div class="stat-value" id="stat-clicks">—</div>
-        <div class="stat-sub">unique Calendly clicks</div>
-      </div>
-      <div class="stat-card gold-accent">
-        <div class="stat-label">Click-to-Book Rate</div>
-        <div class="stat-value" id="stat-click-book">—</div>
-        <div class="stat-sub">booked / clicks</div>
-      </div>
     </div>
 
     <!-- PIPELINE -->
@@ -655,6 +665,7 @@
             <div class="ab-version-badge">VERSION A</div>
             <div class="ab-angle">"The Neighbor Angle"</div>
             <div class="ab-stat-row"><span class="ab-stat-label">Emails Sent</span><span class="ab-stat-val" id="ab-a-sent">—</span></div>
+            <div class="ab-stat-row"><span class="ab-stat-label">Open Rate</span><span class="ab-stat-val" id="ab-a-open">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Reply Rate</span><span class="ab-stat-val" id="ab-a-reply">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Click Rate</span><span class="ab-stat-val" id="ab-a-click">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Booking Rate</span><span class="ab-stat-val" id="ab-a-book">—</span></div>
@@ -663,6 +674,7 @@
             <div class="ab-version-badge">VERSION B</div>
             <div class="ab-angle">"The Proof Angle"</div>
             <div class="ab-stat-row"><span class="ab-stat-label">Emails Sent</span><span class="ab-stat-val" id="ab-b-sent">—</span></div>
+            <div class="ab-stat-row"><span class="ab-stat-label">Open Rate</span><span class="ab-stat-val" id="ab-b-open">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Reply Rate</span><span class="ab-stat-val" id="ab-b-reply">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Click Rate</span><span class="ab-stat-val" id="ab-b-click">—</span></div>
             <div class="ab-stat-row"><span class="ab-stat-label">Booking Rate</span><span class="ab-stat-val" id="ab-b-book">—</span></div>
@@ -772,16 +784,19 @@
     const active      = rows.filter(r => (r.status || '').toUpperCase().trim() === 'ACTIVE').length;
     const booked      = rows.filter(r => (r.status || '').toUpperCase().trim() === 'BOOKED').length;
     const unsub       = rows.filter(r => (r.status || '').toUpperCase().trim() === 'UNSUBSCRIBED').length;
+    const opens       = (stats && stats.unique_opens  != null) ? stats.unique_opens  : null;
     const clicks      = (stats && stats.unique_clicks != null) ? stats.unique_clicks : null;
 
     document.getElementById('stat-contacted').textContent  = contacted;
+    document.getElementById('stat-opens').textContent      = opens  != null ? opens  : '—';
+    document.getElementById('stat-open-rate').textContent  = opens  != null ? pct(opens,  contacted) : '—';
+    document.getElementById('stat-clicks').textContent     = clicks != null ? clicks : '—';
+    document.getElementById('stat-click-rate').textContent = clicks != null ? pct(clicks, contacted) : '—';
     document.getElementById('stat-replies').textContent    = replies;
     document.getElementById('stat-active').textContent     = active;
     document.getElementById('stat-booked').textContent     = booked;
     document.getElementById('stat-conversion').textContent = pct(booked, contacted);
     document.getElementById('stat-unsub').textContent      = unsub;
-    document.getElementById('stat-clicks').textContent     = clicks != null ? clicks : '—';
-    document.getElementById('stat-click-book').textContent = clicks != null ? pct(booked, clicks) : '—';
   }
 
   function renderPipeline(rows) {
@@ -818,6 +833,7 @@
     const hasAB = rows.some(r => r.ab_version && r.ab_version.trim());
     if (!hasAB) return;
 
+    const opensByVersion  = (stats && stats.opens_by_version)  ? stats.opens_by_version  : {};
     const clicksByVersion = (stats && stats.clicks_by_version) ? stats.clicks_by_version : {};
 
     ['A', 'B'].forEach(v => {
@@ -825,9 +841,11 @@
       const sent   = group.filter(r => r.initial_sent_date && r.initial_sent_date.trim()).length;
       const repls  = group.filter(r => (r.reply_received || '').toLowerCase().trim() === 'yes').length;
       const books  = group.filter(r => (r.status || '').toUpperCase().trim() === 'BOOKED').length;
+      const opens  = opensByVersion[v]  != null ? opensByVersion[v]  : null;
       const clicks = clicksByVersion[v] != null ? clicksByVersion[v] : null;
       const lv = v.toLowerCase();
       document.getElementById(`ab-${lv}-sent`).textContent  = sent;
+      document.getElementById(`ab-${lv}-open`).textContent  = opens  != null ? pct(opens,  sent) : '—';
       document.getElementById(`ab-${lv}-reply`).textContent = pct(repls, sent);
       document.getElementById(`ab-${lv}-click`).textContent = clicks != null ? pct(clicks, sent) : '—';
       document.getElementById(`ab-${lv}-book`).textContent  = pct(books, sent);
