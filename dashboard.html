@@ -492,6 +492,54 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── TABS ────────────────────────────────────────────── */
+    .tab-nav {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 2px solid var(--gray-light);
+      padding-bottom: 0;
+    }
+    .tab-btn {
+      font-family: 'Inter', sans-serif;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--gray-text);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      padding: 10px 20px;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: var(--navy); }
+    .tab-btn.active { color: var(--navy); border-bottom-color: var(--gold); }
+
+    /* ── ENGAGEMENT TABLE ────────────────────────────────── */
+    .eng-zero {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--gray-text);
+      font-size: 13px;
+    }
+    .eng-count {
+      display: inline-block;
+      min-width: 22px;
+      text-align: center;
+      background: var(--gray-light);
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      color: var(--navy);
+      margin-right: 4px;
+    }
+    .eng-time { font-size: 11px; color: var(--gray-text); white-space: nowrap; }
+    .event-open  { color: #166534; font-weight: 600; font-size: 11px; }
+    .event-click { color: #7a5c10; font-weight: 600; font-size: 11px; }
+
     /* ── RESPONSIVE ──────────────────────────────────────── */
     @media (max-width: 1400px) {
       .stats-row { grid-template-columns: repeat(5, 1fr); }
@@ -587,6 +635,15 @@
 
   <!-- CONTENT -->
   <div id="content">
+
+    <!-- TAB NAV -->
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Campaign Overview</button>
+      <button class="tab-btn"        data-tab="engagement" onclick="switchTab('engagement')">Engagement Activity</button>
+    </div>
+
+    <!-- ── OVERVIEW TAB ──────────────────────────────────── -->
+    <div id="tab-overview">
 
     <!-- STATS ROW -->
     <div style="margin-bottom:6px;">
@@ -717,6 +774,35 @@
         </tbody>
       </table>
     </div>
+
+    </div><!-- /tab-overview -->
+
+    <!-- ── ENGAGEMENT TAB ───────────────────────────────── -->
+    <div id="tab-engagement" style="display:none;">
+
+      <div style="margin-bottom:6px;">
+        <span class="section-header">Opens &amp; Clicks by Contact</span>
+      </div>
+      <div class="panel" style="padding:0; overflow:hidden;">
+        <table class="activity-table" id="engagement-table">
+          <thead>
+            <tr>
+              <th>Owner</th>
+              <th>Address</th>
+              <th>Ver</th>
+              <th>Opens</th>
+              <th>Last Opened</th>
+              <th>Clicks</th>
+              <th>Last Clicked</th>
+            </tr>
+          </thead>
+          <tbody id="engagement-tbody">
+            <tr><td colspan="7" class="eng-zero">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /tab-engagement -->
 
   </div><!-- /content -->
 
@@ -932,23 +1018,103 @@
     `).join('');
   }
 
-  function processData(rows, stats) {
+  function fmtTime(isoStr) {
+    if (!isoStr) return '—';
+    const d = new Date(isoStr.endsWith('Z') ? isoStr : isoStr + 'Z');
+    if (isNaN(d)) return isoStr;
+    return d.toLocaleString(undefined, {
+      month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+  }
+
+  function renderEngagement(crmRows, eventsData) {
+    const tbody = document.getElementById('engagement-tbody');
+
+    if (!eventsData || eventsData.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="7" class="eng-zero">No opens or clicks recorded yet.</td></tr>`;
+      return;
+    }
+
+    // Build CRM lookup: lowercase email → row
+    const crmByEmail = {};
+    crmRows.forEach(r => {
+      if (r.email) crmByEmail[r.email.toLowerCase()] = r;
+    });
+
+    // Group events by email: { email: { open: {...}, click: {...} } }
+    const byContact = {};
+    eventsData.forEach(ev => {
+      const key = ev.email.toLowerCase();
+      if (!byContact[key]) byContact[key] = { email: key };
+      byContact[key][ev.event_type] = ev;
+    });
+
+    // Sort by most recent activity across opens and clicks
+    const contacts = Object.values(byContact).sort((a, b) => {
+      const aTime = Math.max(
+        a.open  ? new Date(a.open.last_seen)  : 0,
+        a.click ? new Date(a.click.last_seen) : 0,
+      );
+      const bTime = Math.max(
+        b.open  ? new Date(b.open.last_seen)  : 0,
+        b.click ? new Date(b.click.last_seen) : 0,
+      );
+      return bTime - aTime;
+    });
+
+    tbody.innerHTML = contacts.map(c => {
+      const crm     = crmByEmail[c.email] || {};
+      const name    = fmt(crm.owner_name || c.email);
+      const addr    = fmt(crm.property_address || '—');
+      const ver     = crm.ab_version || (c.open && c.open.ab_version) || (c.click && c.click.ab_version) || '';
+      const opens   = c.open  ? c.open.count  : 0;
+      const clicks  = c.click ? c.click.count : 0;
+      const lastOpen  = c.open  ? fmtTime(c.open.last_seen)  : '—';
+      const lastClick = c.click ? fmtTime(c.click.last_seen) : '—';
+
+      return `<tr>
+        <td><strong>${name}</strong><br><span style="font-size:11px;color:var(--gray-text)">${c.email}</span></td>
+        <td style="color:var(--gray-text)">${addr}</td>
+        <td>${abPill(ver)}</td>
+        <td>${opens > 0 ? `<span class="eng-count">${opens}</span><span class="event-open">opened</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td class="eng-time">${lastOpen}</td>
+        <td>${clicks > 0 ? `<span class="eng-count">${clicks}</span><span class="event-click">clicked</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td class="eng-time">${lastClick}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab-pane, #tab-overview, #tab-engagement').forEach(el => {
+      el.style.display = 'none';
+    });
+    document.getElementById('tab-' + name).style.display = '';
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === name);
+    });
+  }
+
+  function processData(rows, stats, events) {
     renderStats(rows, stats);
     renderPipeline(rows);
     renderAB(rows, stats);
     renderBatchChart(rows);
     renderActivity(rows);
+    renderEngagement(rows, events);
   }
 
   async function loadData() {
     document.getElementById('loading-overlay').style.display = 'flex';
     try {
-      const [crmResp, statsResp] = await Promise.all([
+      const [crmResp, statsResp, eventsResp] = await Promise.all([
         fetch('https://jp-tracker.onrender.com/crm'),
         fetch('https://jp-tracker.onrender.com/stats'),
+        fetch('https://jp-tracker.onrender.com/events').catch(() => null),
       ]);
-      const crmJson   = await crmResp.json();
-      const statsJson = statsResp.ok ? await statsResp.json() : {};
+      const crmJson    = await crmResp.json();
+      const statsJson  = statsResp.ok  ? await statsResp.json()  : {};
+      const eventsData = (eventsResp && eventsResp.ok) ? await eventsResp.json() : [];
 
       const rows      = crmJson.data || [];
       const updatedAt = crmJson.updated_at;
@@ -957,7 +1123,7 @@
         document.getElementById('last-updated').textContent = 'Updated ' + new Date(updatedAt).toLocaleString();
       }
 
-      processData(rows, statsJson);
+      processData(rows, statsJson, eventsData);
     } catch(e) {
       console.error('Failed to load data:', e);
       document.getElementById('last-updated').textContent = 'Failed to load data';
