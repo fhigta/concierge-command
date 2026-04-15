@@ -938,9 +938,9 @@
     });
   }
 
-  function renderBatchChart(rows) {
-    const times   = ['Morning', 'Afternoon', 'Evening'];
-    const keys    = ['morning', 'afternoon', 'evening'];
+  function renderBatchChart(rows, stats) {
+    const times    = ['Morning', 'Afternoon', 'Evening'];
+    const keys     = ['morning', 'afternoon', 'evening'];
     const hasBatch = rows.some(r => r.batch_time && r.batch_time.trim());
 
     const counts = keys.map(k =>
@@ -949,6 +949,9 @@
                         && r.initial_sent_date && r.initial_sent_date.trim()).length
         : 0
     );
+
+    const opensByBatch  = (stats && stats.opens_by_batch)  ? stats.opens_by_batch  : {};
+    const clicksByBatch = (stats && stats.clicks_by_batch) ? stats.clicks_by_batch : {};
 
     const ctx = document.getElementById('batch-chart').getContext('2d');
     if (batchChartInstance) batchChartInstance.destroy();
@@ -972,7 +975,18 @@
           legend: { display: false },
           tooltip: {
             callbacks: {
-              label: ctx => ` ${ctx.parsed.y} emails`
+              label: ctx => {
+                const k    = keys[ctx.dataIndex];
+                const sent = counts[ctx.dataIndex];
+                const opens  = opensByBatch[k]  != null ? opensByBatch[k]  : null;
+                const clicks = clicksByBatch[k] != null ? clicksByBatch[k] : null;
+                const lines = [` Sent: ${sent}`];
+                if (opens  != null) lines.push(` Opens: ${opens} (${pct(opens,  sent)})`);
+                else                lines.push(` Opens: —`);
+                if (clicks != null) lines.push(` Clicks: ${clicks} (${pct(clicks, sent)})`);
+                else                lines.push(` Clicks: —`);
+                return lines;
+              }
             }
           }
         },
@@ -1099,7 +1113,7 @@
     renderStats(rows, stats);
     renderPipeline(rows);
     renderAB(rows, stats);
-    renderBatchChart(rows);
+    renderBatchChart(rows, stats);
     renderActivity(rows);
     renderEngagement(rows, events);
   }
