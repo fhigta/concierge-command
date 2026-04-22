@@ -253,7 +253,7 @@
     /* ── STAT CARDS ──────────────────────────────────────── */
     .stats-row {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 14px;
       margin-bottom: 28px;
     }
@@ -452,6 +452,7 @@
     .pill-followup  { background: rgba(249,115,22,0.12); color: #9a3412; }
     .pill-closed    { background: rgba(107,114,128,0.12);color: #374151; }
     .pill-unsub     { background: rgba(239,68,68,0.1);   color: #991b1b; }
+    .pill-bounced   { background: rgba(220,38,38,0.12);  color: #7f1d1d; }
 
     .ab-pill {
       font-size: 10px;
@@ -649,9 +650,24 @@
     </div>
     <div class="stats-row" id="stats-row">
       <div class="stat-card">
-        <div class="stat-label">Total Contacted</div>
+        <div class="stat-label">Households Contacted</div>
         <div class="stat-value" id="stat-contacted">—</div>
-        <div class="stat-sub">initial email sent</div>
+        <div class="stat-sub">unique households reached</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Recipients</div>
+        <div class="stat-value" id="stat-recipients">—</div>
+        <div class="stat-sub">individual emails sent</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Delivered</div>
+        <div class="stat-value" id="stat-delivered">—</div>
+        <div class="stat-sub">recipients minus bounced</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Follow-ups Sent</div>
+        <div class="stat-value" id="stat-followups">—</div>
+        <div class="stat-sub">7-day follow-up emails</div>
       </div>
       <div class="stat-card gold-accent">
         <div class="stat-label">Unique Opens</div>
@@ -661,7 +677,7 @@
       <div class="stat-card">
         <div class="stat-label">Open Rate</div>
         <div class="stat-value" id="stat-open-rate">—</div>
-        <div class="stat-sub">opens / contacted</div>
+        <div class="stat-sub">opens / delivered</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Calendly Clicks</div>
@@ -671,7 +687,7 @@
       <div class="stat-card">
         <div class="stat-label">Click Rate</div>
         <div class="stat-value" id="stat-click-rate">—</div>
-        <div class="stat-sub">clicks / contacted</div>
+        <div class="stat-sub">clicks / delivered</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Total Replies</div>
@@ -691,12 +707,17 @@
       <div class="stat-card gold-accent">
         <div class="stat-label">Conversion Rate</div>
         <div class="stat-value" id="stat-conversion">—</div>
-        <div class="stat-sub">booked / contacted</div>
+        <div class="stat-sub">booked / delivered</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Unsubscribes</div>
         <div class="stat-value" id="stat-unsub">—</div>
         <div class="stat-sub">status = UNSUBSCRIBED</div>
+      </div>
+      <div class="stat-card" style="border-left: 3px solid #dc2626;">
+        <div class="stat-label" style="color:#dc2626;">Hard Bounces</div>
+        <div class="stat-value" id="stat-bounced" style="color:#dc2626;">—</div>
+        <div class="stat-sub">status = BOUNCED</div>
       </div>
     </div>
 
@@ -762,13 +783,14 @@
           <tr>
             <th>Owner</th>
             <th>Address</th>
+            <th>Type</th>
             <th>Status</th>
             <th>A/B</th>
-            <th>Sent Date</th>
+            <th>Date</th>
           </tr>
         </thead>
         <tbody id="activity-tbody">
-          <tr><td colspan="5" style="text-align:center;color:var(--gray-text);padding:24px;">Loading…</td></tr>
+          <tr><td colspan="6" style="text-align:center;color:var(--gray-text);padding:24px;">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -820,6 +842,7 @@
     { key: 'BOOKED',            label: 'Booked',       color: '#22c55e' },
     { key: 'CLOSED',            label: 'Closed',       color: '#6b7280' },
     { key: 'UNSUBSCRIBED',      label: 'Unsub',        color: '#ef4444' },
+    { key: 'BOUNCED',           label: 'Bounced',      color: '#dc2626' },
   ];
 
   const STATUS_PILL = {
@@ -831,6 +854,7 @@
     'BOOKED':           'pill-booked',
     'CLOSED':           'pill-closed',
     'UNSUBSCRIBED':     'pill-unsub',
+    'BOUNCED':          'pill-bounced',
   };
 
   let batchChartInstance = null;
@@ -863,8 +887,15 @@
   }
 
   function renderStats(rows, stats) {
-    const contacted   = rows.filter(r => r.initial_sent_date && r.initial_sent_date.trim()).length;
-    const replies     = rows.filter(r => (r.reply_received || '').toLowerCase().trim() === 'yes').length;
+    const sentRows    = rows.filter(r => r.initial_sent_date && r.initial_sent_date.trim());
+    const recipients  = sentRows.length;
+    // Unique households: count distinct household_id values among sent rows; fall back to recipient count
+    const householdIds = new Set(sentRows.map(r => (r.household_id || r.email || '').toLowerCase().trim()).filter(Boolean));
+    const contacted   = householdIds.size || recipients;
+    const bounced     = rows.filter(r => (r.status || '').toUpperCase().trim() === 'BOUNCED').length;
+    const delivered   = recipients - bounced;
+    const followups   = rows.filter(r => r.followup_sent_date && r.followup_sent_date.trim()).length;
+    const replies     = rows.filter(r => (r.reply_received || '').trim()).length;
     const active      = rows.filter(r => (r.status || '').toUpperCase().trim() === 'ACTIVE').length;
     const booked      = rows.filter(r => (r.status || '').toUpperCase().trim() === 'BOOKED').length;
     const unsub       = rows.filter(r => (r.status || '').toUpperCase().trim() === 'UNSUBSCRIBED').length;
@@ -872,15 +903,19 @@
     const clicks      = (stats && stats.unique_clicks != null) ? stats.unique_clicks : null;
 
     document.getElementById('stat-contacted').textContent  = contacted;
+    document.getElementById('stat-recipients').textContent = recipients;
+    document.getElementById('stat-delivered').textContent  = delivered;
+    document.getElementById('stat-followups').textContent  = followups;
     document.getElementById('stat-opens').textContent      = opens  != null ? opens  : '—';
-    document.getElementById('stat-open-rate').textContent  = opens  != null ? pct(opens,  contacted) : '—';
+    document.getElementById('stat-open-rate').textContent  = opens  != null ? pct(opens,  delivered) : '—';
     document.getElementById('stat-clicks').textContent     = clicks != null ? clicks : '—';
-    document.getElementById('stat-click-rate').textContent = clicks != null ? pct(clicks, contacted) : '—';
+    document.getElementById('stat-click-rate').textContent = clicks != null ? pct(clicks, delivered) : '—';
     document.getElementById('stat-replies').textContent    = replies;
     document.getElementById('stat-active').textContent     = active;
     document.getElementById('stat-booked').textContent     = booked;
-    document.getElementById('stat-conversion').textContent = pct(booked, contacted);
+    document.getElementById('stat-conversion').textContent = pct(booked, delivered);
     document.getElementById('stat-unsub').textContent      = unsub;
+    document.getElementById('stat-bounced').textContent    = bounced;
   }
 
   function renderPipeline(rows) {
@@ -921,14 +956,16 @@
     const clicksByVersion = (stats && stats.clicks_by_version) ? stats.clicks_by_version : {};
 
     ['A', 'B'].forEach(v => {
-      const group  = rows.filter(r => (r.ab_version || '').toUpperCase().trim() === v);
-      const sent   = group.filter(r => r.initial_sent_date && r.initial_sent_date.trim()).length;
-      const repls  = group.filter(r => (r.reply_received || '').toLowerCase().trim() === 'yes').length;
-      const books  = group.filter(r => (r.status || '').toUpperCase().trim() === 'BOOKED').length;
+      const group     = rows.filter(r => (r.ab_version || '').toUpperCase().trim() === v);
+      const contacted = group.filter(r => r.initial_sent_date && r.initial_sent_date.trim()).length;
+      const bounced   = group.filter(r => (r.status || '').toUpperCase().trim() === 'BOUNCED').length;
+      const sent      = contacted - bounced;  // delivered = denominator for rates
+      const repls     = group.filter(r => (r.reply_received || '').trim()).length;
+      const books     = group.filter(r => (r.status || '').toUpperCase().trim() === 'BOOKED').length;
       const opens  = opensByVersion[v]  != null ? opensByVersion[v]  : null;
       const clicks = clicksByVersion[v] != null ? clicksByVersion[v] : null;
       const lv = v.toLowerCase();
-      document.getElementById(`ab-${lv}-sent`).textContent  = sent;
+      document.getElementById(`ab-${lv}-sent`).textContent  = `${sent} (${contacted} sent)`;
       document.getElementById(`ab-${lv}-open`).textContent  = opens  != null ? pct(opens,  sent) : '—';
       document.getElementById(`ab-${lv}-reply`).textContent = pct(repls, sent);
       document.getElementById(`ab-${lv}-click`).textContent = clicks != null ? pct(clicks, sent) : '—';
@@ -1008,26 +1045,39 @@
   }
 
   function renderActivity(rows) {
-    const sent = rows
-      .filter(r => r.initial_sent_date && r.initial_sent_date.trim())
-      .sort((a, b) => new Date(b.initial_sent_date) - new Date(a.initial_sent_date))
-      .slice(0, 10);
+    // Build unified event list: one entry per send (initial or follow-up)
+    const events = [];
+    rows.forEach(r => {
+      if (r.initial_sent_date && r.initial_sent_date.trim()) {
+        events.push({ row: r, type: 'Initial', date: r.initial_sent_date.trim() });
+      }
+      if (r.followup_sent_date && r.followup_sent_date.trim()) {
+        events.push({ row: r, type: 'Follow-up', date: r.followup_sent_date.trim() });
+      }
+    });
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const recent = events.slice(0, 10);
 
     const tbody = document.getElementById('activity-tbody');
-    if (!sent.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--gray-text);padding:24px;">No emails sent yet.</td></tr>`;
+    if (!recent.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--gray-text);padding:24px;">No emails sent yet.</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = sent.map(r => `
-      <tr>
-        <td><strong>${fmt(r.owner_name || '')}</strong></td>
-        <td style="color:var(--gray-text)">${fmt(r.property_address || '')}</td>
-        <td>${statusPill(r.status)}</td>
-        <td>${abPill(r.ab_version)}</td>
-        <td style="font-variant-numeric:tabular-nums;color:var(--gray-text);">${(r.initial_sent_date || '').trim()}</td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = recent.map(({ row: r, type, date }) => {
+      const typePill = type === 'Follow-up'
+        ? `<span class="status-pill pill-followup">Follow-up</span>`
+        : `<span class="status-pill" style="background:rgba(27,58,92,0.08);color:#1B3A5C;">Initial</span>`;
+      return `
+        <tr>
+          <td><strong>${fmt(r.owner_name || '')}</strong></td>
+          <td style="color:var(--gray-text)">${fmt(r.property_address || '')}</td>
+          <td>${typePill}</td>
+          <td>${statusPill(r.status)}</td>
+          <td>${abPill(r.ab_version)}</td>
+          <td style="font-variant-numeric:tabular-nums;color:var(--gray-text);">${date}</td>
+        </tr>`;
+    }).join('');
   }
 
   function fmtTime(isoStr) {
@@ -1140,7 +1190,7 @@
       console.error('Failed to load data:', e);
       document.getElementById('last-updated').textContent = 'Failed to load data';
       document.getElementById('activity-tbody').innerHTML =
-        `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px;">
+        `<tr><td colspan="6" style="text-align:center;color:#ef4444;padding:24px;">
           Could not load CRM data from Render.<br>
           <small style="color:var(--gray-text);">${e.message || ''}</small>
         </td></tr>`;
