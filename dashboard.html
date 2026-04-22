@@ -253,7 +253,7 @@
     /* ── STAT CARDS ──────────────────────────────────────── */
     .stats-row {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(7, 1fr);
       gap: 14px;
       margin-bottom: 28px;
     }
@@ -284,6 +284,7 @@
       line-height: 1;
     }
     .stat-card.gold-accent .stat-value { color: var(--gold); }
+    .stat-card.bounced-accent .stat-value { color: #dc2626; }
     .stat-sub {
       font-size: 10px;
       color: var(--gray-text);
@@ -543,10 +544,10 @@
 
     /* ── RESPONSIVE ──────────────────────────────────────── */
     @media (max-width: 1400px) {
-      .stats-row { grid-template-columns: repeat(5, 1fr); }
+      .stats-row { grid-template-columns: repeat(7, 1fr); }
     }
     @media (max-width: 1100px) {
-      .stats-row { grid-template-columns: repeat(4, 1fr); }
+      .stats-row { grid-template-columns: repeat(5, 1fr); }
     }
     @media (max-width: 900px) {
       #sidebar { transform: translateX(-100%); }
@@ -714,9 +715,9 @@
         <div class="stat-value" id="stat-unsub">—</div>
         <div class="stat-sub">status = UNSUBSCRIBED</div>
       </div>
-      <div class="stat-card" style="border-left: 3px solid #dc2626;">
-        <div class="stat-label" style="color:#dc2626;">Hard Bounces</div>
-        <div class="stat-value" id="stat-bounced" style="color:#dc2626;">—</div>
+      <div class="stat-card bounced-accent">
+        <div class="stat-label">Hard Bounces</div>
+        <div class="stat-value" id="stat-bounced">—</div>
         <div class="stat-sub">status = BOUNCED</div>
       </div>
     </div>
@@ -926,6 +927,8 @@
       if (counts[s] !== undefined) counts[s]++;
       else counts['NEW']++;
     });
+    // Follow-Up bar = contacts that received a follow-up email, regardless of current status
+    counts['FOLLOW_UP_NEEDED'] = rows.filter(r => r.followup_sent_date && r.followup_sent_date.trim()).length;
 
     const max = Math.max(...Object.values(counts), 1);
     const container = document.getElementById('pipeline-stages');
