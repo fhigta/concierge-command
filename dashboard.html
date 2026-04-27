@@ -1172,10 +1172,11 @@
   async function loadData() {
     document.getElementById('loading-overlay').style.display = 'flex';
     try {
+      const cb = `_=${Date.now()}`;
       const [crmResp, statsResp, eventsResp] = await Promise.all([
-        fetch('https://jp-tracker.onrender.com/crm'),
-        fetch('https://jp-tracker.onrender.com/stats'),
-        fetch('https://jp-tracker.onrender.com/events').catch(() => null),
+        fetch(`https://jp-tracker.onrender.com/crm?${cb}`),
+        fetch(`https://jp-tracker.onrender.com/stats?${cb}`),
+        fetch(`https://jp-tracker.onrender.com/events?${cb}`).catch(() => null),
       ]);
       const crmJson    = await crmResp.json();
       const statsJson  = statsResp.ok  ? await statsResp.json()  : {};
