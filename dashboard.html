@@ -1142,9 +1142,9 @@
         <td><strong>${name}</strong><br><span style="font-size:11px;color:var(--gray-text)">${c.email}</span></td>
         <td style="color:var(--gray-text)">${addr}</td>
         <td>${abPill(ver)}</td>
-        <td>${opens > 0 ? `<span class="eng-count">${opens}</span><span class="event-open">opened</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td>${opens > 0 ? `<span class="eng-count">${opens}×</span><span class="event-open">opened</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
         <td class="eng-time">${lastOpen}</td>
-        <td>${clicks > 0 ? `<span class="eng-count">${clicks}</span><span class="event-click">clicked</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td>${clicks > 0 ? `<span class="eng-count">${clicks}×</span><span class="event-click">clicked</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
         <td class="eng-time">${lastClick}</td>
       </tr>`;
     }).join('');
