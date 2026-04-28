@@ -640,6 +640,7 @@
     <div class="tab-nav">
       <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Campaign Overview</button>
       <button class="tab-btn"        data-tab="engagement" onclick="switchTab('engagement')">Engagement Activity</button>
+      <button class="tab-btn"        data-tab="hot-leads"  onclick="switchTab('hot-leads')">🔥 Hot Leads</button>
     </div>
 
     <!-- ── OVERVIEW TAB ──────────────────────────────────── -->
@@ -824,6 +825,30 @@
       </div>
 
     </div><!-- /tab-engagement -->
+
+    <!-- ── HOT LEADS TAB ─────────────────────────────────── -->
+    <div id="tab-hot-leads" style="display:none;">
+      <div class="section-card">
+        <div class="section-title">Hot Leads — Ranked by Engagement Score</div>
+        <table class="activity-table" id="hot-leads-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Contact</th>
+              <th>Score</th>
+              <th>Opens</th>
+              <th>Clicks</th>
+              <th>Last Activity</th>
+              <th>Days in Pipeline</th>
+              <th>Version</th>
+            </tr>
+          </thead>
+          <tbody id="hot-leads-tbody">
+            <tr><td colspan="8" style="text-align:center;color:var(--gray-text);padding:24px;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /tab-hot-leads -->
 
   </div><!-- /content -->
 
@@ -1150,8 +1175,61 @@
     }).join('');
   }
 
+  function renderHotLeads(crmRows, eventsData) {
+    const tbody = document.getElementById('hot-leads-tbody');
+    if (!tbody) return;
+
+    // Build events lookup: email -> {opens, clicks, lastSeen}
+    const evMap = {};
+    (eventsData || []).forEach(ev => {
+      const e = ev.email.toLowerCase();
+      if (!evMap[e]) evMap[e] = { opens: 0, clicks: 0, lastSeen: null };
+      if (ev.event_type === 'open')  evMap[e].opens  += ev.count;
+      if (ev.event_type === 'click') evMap[e].clicks += ev.count;
+      const ls = ev.last_seen;
+      if (!evMap[e].lastSeen || ls > evMap[e].lastSeen) evMap[e].lastSeen = ls;
+    });
+
+    const scored = crmRows
+      .map(r => ({ r, score: parseInt(r.engagement_score || '0') || 0 }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    if (!scored.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--gray-text);padding:24px;">Run update_scores.py to populate engagement scores.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = scored.map(({ r, score }, i) => {
+      const email   = (r.email || '').toLowerCase();
+      const ev      = evMap[email] || {};
+      const opens   = ev.opens  || 0;
+      const clicks  = ev.clicks || 0;
+      const lastAct = ev.lastSeen ? fmtTime(ev.lastSeen) : '—';
+      const days    = r.initial_sent_date
+        ? Math.floor((Date.now() - new Date(r.initial_sent_date)) / 86400000) : '—';
+
+      const scoreBadge = score >= 10
+        ? `<span style="background:#fee2e2;color:#991b1b;font-weight:700;padding:2px 10px;border-radius:20px;font-size:12px;">${score}</span>`
+        : score >= 5
+          ? `<span style="background:#fef3c7;color:#92400e;font-weight:700;padding:2px 10px;border-radius:20px;font-size:12px;">${score}</span>`
+          : `<span style="background:rgba(74,127,191,0.15);color:#2a5a8f;font-weight:700;padding:2px 10px;border-radius:20px;font-size:12px;">${score}</span>`;
+
+      return `<tr>
+        <td style="color:var(--gray-text);font-weight:600;">${i + 1}</td>
+        <td><strong>${fmt(r.owner_name || email)}</strong><br><span style="font-size:11px;color:var(--gray-text)">${email}</span></td>
+        <td>${scoreBadge}</td>
+        <td>${opens > 0 ? `<span class="eng-count">${opens}×</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td>${clicks > 0 ? `<span class="eng-count">${clicks}×</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td class="eng-time">${lastAct}</td>
+        <td style="color:var(--gray-text)">${days !== '—' ? days + 'd' : '—'}</td>
+        <td>${abPill(r.ab_version || '')}</td>
+      </tr>`;
+    }).join('');
+  }
+
   function switchTab(name) {
-    document.querySelectorAll('.tab-pane, #tab-overview, #tab-engagement').forEach(el => {
+    document.querySelectorAll('.tab-pane, #tab-overview, #tab-engagement, #tab-hot-leads').forEach(el => {
       el.style.display = 'none';
     });
     document.getElementById('tab-' + name).style.display = '';
@@ -1167,6 +1245,7 @@
     renderBatchChart(rows, stats);
     renderActivity(rows);
     renderEngagement(rows, events);
+    renderHotLeads(rows, events);
   }
 
   async function loadData() {
