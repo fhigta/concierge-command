@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -830,6 +830,11 @@
     <div id="tab-hot-leads" style="display:none;">
       <div class="section-card">
         <div class="section-title">Hot Leads — Ranked by Engagement Score</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px;align-items:center;">
+      <span style="background:#dc3545;color:#fff;padding:2px 8px;border-radius:12px;">&ge; 15&nbsp;&nbsp;Hot</span>
+      <span style="background:#fd7e14;color:#fff;padding:2px 8px;border-radius:12px;">5 &ndash; 14&nbsp;&nbsp;Warm</span>
+      <span style="background:#0d6efd;color:#fff;padding:2px 8px;border-radius:12px;">1 &ndash; 4&nbsp;&nbsp;Interest</span>
+    </div>
         <table class="activity-table" id="hot-leads-table">
           <thead>
             <tr>
@@ -1209,7 +1214,7 @@
       const days    = r.initial_sent_date
         ? Math.floor((Date.now() - new Date(r.initial_sent_date)) / 86400000) : '—';
 
-      const scoreBadge = score >= 10
+      const scoreBadge = score >= 15
         ? `<span style="background:#fee2e2;color:#991b1b;font-weight:700;padding:2px 10px;border-radius:20px;font-size:12px;">${score}</span>`
         : score >= 5
           ? `<span style="background:#fef3c7;color:#92400e;font-weight:700;padding:2px 10px;border-radius:20px;font-size:12px;">${score}</span>`
