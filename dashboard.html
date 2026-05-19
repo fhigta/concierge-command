@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -253,7 +253,7 @@
     /* ── STAT CARDS ──────────────────────────────────────── */
     .stats-row {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(7, 1fr);
       gap: 14px;
       margin-bottom: 28px;
     }
@@ -284,6 +284,7 @@
       line-height: 1;
     }
     .stat-card.gold-accent .stat-value { color: var(--gold); }
+    .stat-card.bounced-accent .stat-value { color: #dc2626; }
     .stat-sub {
       font-size: 10px;
       color: var(--gray-text);
@@ -543,10 +544,10 @@
 
     /* ── RESPONSIVE ──────────────────────────────────────── */
     @media (max-width: 1400px) {
-      .stats-row { grid-template-columns: repeat(5, 1fr); }
+      .stats-row { grid-template-columns: repeat(7, 1fr); }
     }
     @media (max-width: 1100px) {
-      .stats-row { grid-template-columns: repeat(4, 1fr); }
+      .stats-row { grid-template-columns: repeat(5, 1fr); }
     }
     @media (max-width: 900px) {
       #sidebar { transform: translateX(-100%); }
@@ -604,7 +605,7 @@
 
   <div class="sidebar-footer">
     JP Figallo<br>
-    Douglas Elliman · North Lakes, Weston FL
+    Douglas Elliman · The Lakes, Weston FL
   </div>
 </nav>
 
@@ -621,7 +622,7 @@
       <span id="last-updated">—</span>
       <select id="campaign-select" onchange="loadData()">
         <option value="">All Campaigns</option>
-        <option value="the_lakes">The Lakes — Weston, FL 2026</option>
+        <option value="lakes-2026">The Lakes — Weston, FL 2026</option>
         <option value="north_lakes">North Lakes — Weston, FL 2026</option>
       </select>
       <button id="refresh-btn" onclick="loadData()">
@@ -641,6 +642,7 @@
     <div class="tab-nav">
       <button class="tab-btn active" data-tab="overview" onclick="switchTab('overview')">Campaign Overview</button>
       <button class="tab-btn"        data-tab="engagement" onclick="switchTab('engagement')">Engagement Activity</button>
+      <button class="tab-btn"        data-tab="hot-leads"  onclick="switchTab('hot-leads')">🔥 Hot Leads</button>
     </div>
 
     <!-- ── OVERVIEW TAB ──────────────────────────────────── -->
@@ -665,6 +667,11 @@
         <div class="stat-label">Delivered</div>
         <div class="stat-value" id="stat-delivered">—</div>
         <div class="stat-sub">recipients minus bounced</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Follow-ups Sent</div>
+        <div class="stat-value" id="stat-followups">—</div>
+        <div class="stat-sub">7-day follow-up emails</div>
       </div>
       <div class="stat-card gold-accent">
         <div class="stat-label">Unique Opens</div>
@@ -711,9 +718,9 @@
         <div class="stat-value" id="stat-unsub">—</div>
         <div class="stat-sub">status = UNSUBSCRIBED</div>
       </div>
-      <div class="stat-card" style="border-left: 3px solid #dc2626;">
-        <div class="stat-label" style="color:#dc2626;">Hard Bounces</div>
-        <div class="stat-value" id="stat-bounced" style="color:#dc2626;">—</div>
+      <div class="stat-card bounced-accent">
+        <div class="stat-label">Hard Bounces</div>
+        <div class="stat-value" id="stat-bounced">—</div>
         <div class="stat-sub">status = BOUNCED</div>
       </div>
     </div>
@@ -780,13 +787,14 @@
           <tr>
             <th>Owner</th>
             <th>Address</th>
+            <th>Type</th>
             <th>Status</th>
             <th>A/B</th>
-            <th>Sent Date</th>
+            <th>Date</th>
           </tr>
         </thead>
         <tbody id="activity-tbody">
-          <tr><td colspan="5" style="text-align:center;color:var(--gray-text);padding:24px;">Loading…</td></tr>
+          <tr><td colspan="6" style="text-align:center;color:var(--gray-text);padding:24px;">Loading…</td></tr>
         </tbody>
       </table>
     </div>
@@ -819,6 +827,35 @@
       </div>
 
     </div><!-- /tab-engagement -->
+
+    <!-- ── HOT LEADS TAB ─────────────────────────────────── -->
+    <div id="tab-hot-leads" style="display:none;">
+      <div class="section-card">
+        <div class="section-title">Hot Leads — Ranked by Engagement Score</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px;align-items:center;">
+      <span style="background:#dc3545;color:#fff;padding:2px 8px;border-radius:12px;">&ge; 15&nbsp;&nbsp;Hot</span>
+      <span style="background:#fd7e14;color:#fff;padding:2px 8px;border-radius:12px;">5 &ndash; 14&nbsp;&nbsp;Warm</span>
+      <span style="background:#0d6efd;color:#fff;padding:2px 8px;border-radius:12px;">1 &ndash; 4&nbsp;&nbsp;Interest</span>
+    </div>
+        <table class="activity-table" id="hot-leads-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Contact</th>
+              <th>Score</th>
+              <th>Opens</th>
+              <th>Clicks</th>
+              <th>Last Activity</th>
+              <th>Days in Pipeline</th>
+              <th>Version</th>
+            </tr>
+          </thead>
+          <tbody id="hot-leads-tbody">
+            <tr><td colspan="8" style="text-align:center;color:var(--gray-text);padding:24px;">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div><!-- /tab-hot-leads -->
 
   </div><!-- /content -->
 
@@ -890,6 +927,7 @@
     const contacted   = householdIds.size || recipients;
     const bounced     = rows.filter(r => (r.status || '').toUpperCase().trim() === 'BOUNCED').length;
     const delivered   = recipients - bounced;
+    const followups   = rows.filter(r => r.followup_sent_date && r.followup_sent_date.trim()).length;
     const replies     = rows.filter(r => (r.reply_received || '').trim()).length;
     const active      = rows.filter(r => (r.status || '').toUpperCase().trim() === 'ACTIVE').length;
     const booked      = rows.filter(r => (r.status || '').toUpperCase().trim() === 'BOOKED').length;
@@ -900,6 +938,7 @@
     document.getElementById('stat-contacted').textContent  = contacted;
     document.getElementById('stat-recipients').textContent = recipients;
     document.getElementById('stat-delivered').textContent  = delivered;
+    document.getElementById('stat-followups').textContent  = followups;
     document.getElementById('stat-opens').textContent      = opens  != null ? opens  : '—';
     document.getElementById('stat-open-rate').textContent  = opens  != null ? pct(opens,  delivered) : '—';
     document.getElementById('stat-clicks').textContent     = clicks != null ? clicks : '—';
@@ -920,6 +959,8 @@
       if (counts[s] !== undefined) counts[s]++;
       else counts['NEW']++;
     });
+    // Follow-Up bar = contacts that received a follow-up email, regardless of current status
+    counts['FOLLOW_UP_NEEDED'] = rows.filter(r => r.followup_sent_date && r.followup_sent_date.trim()).length;
 
     const max = Math.max(...Object.values(counts), 1);
     const container = document.getElementById('pipeline-stages');
@@ -1039,26 +1080,39 @@
   }
 
   function renderActivity(rows) {
-    const sent = rows
-      .filter(r => r.initial_sent_date && r.initial_sent_date.trim())
-      .sort((a, b) => new Date(b.initial_sent_date) - new Date(a.initial_sent_date))
-      .slice(0, 10);
+    // Build unified event list: one entry per send (initial or follow-up)
+    const events = [];
+    rows.forEach(r => {
+      if (r.initial_sent_date && r.initial_sent_date.trim()) {
+        events.push({ row: r, type: 'Initial', date: r.initial_sent_date.trim() });
+      }
+      if (r.followup_sent_date && r.followup_sent_date.trim()) {
+        events.push({ row: r, type: 'Follow-up', date: r.followup_sent_date.trim() });
+      }
+    });
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const recent = events.slice(0, 10);
 
     const tbody = document.getElementById('activity-tbody');
-    if (!sent.length) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--gray-text);padding:24px;">No emails sent yet.</td></tr>`;
+    if (!recent.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--gray-text);padding:24px;">No emails sent yet.</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = sent.map(r => `
-      <tr>
-        <td><strong>${fmt(r.owner_name || '')}</strong></td>
-        <td style="color:var(--gray-text)">${fmt(r.property_address || '')}</td>
-        <td>${statusPill(r.status)}</td>
-        <td>${abPill(r.ab_version)}</td>
-        <td style="font-variant-numeric:tabular-nums;color:var(--gray-text);">${(r.initial_sent_date || '').trim()}</td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = recent.map(({ row: r, type, date }) => {
+      const typePill = type === 'Follow-up'
+        ? `<span class="status-pill pill-followup">Follow-up</span>`
+        : `<span class="status-pill" style="background:rgba(27,58,92,0.08);color:#1B3A5C;">Initial</span>`;
+      return `
+        <tr>
+          <td><strong>${fmt(r.owner_name || '')}</strong></td>
+          <td style="color:var(--gray-text)">${fmt(r.property_address || '')}</td>
+          <td>${typePill}</td>
+          <td>${statusPill(r.status)}</td>
+          <td>${abPill(r.ab_version)}</td>
+          <td style="font-variant-numeric:tabular-nums;color:var(--gray-text);">${date}</td>
+        </tr>`;
+    }).join('');
   }
 
   function fmtTime(isoStr) {
@@ -1120,16 +1174,69 @@
         <td><strong>${name}</strong><br><span style="font-size:11px;color:var(--gray-text)">${c.email}</span></td>
         <td style="color:var(--gray-text)">${addr}</td>
         <td>${abPill(ver)}</td>
-        <td>${opens > 0 ? `<span class="eng-count">${opens}</span><span class="event-open">opened</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td>${opens > 0 ? `<span class="eng-count">${opens}×</span><span class="event-open">opened</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
         <td class="eng-time">${lastOpen}</td>
-        <td>${clicks > 0 ? `<span class="eng-count">${clicks}</span><span class="event-click">clicked</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td>${clicks > 0 ? `<span class="eng-count">${clicks}×</span><span class="event-click">clicked</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
         <td class="eng-time">${lastClick}</td>
       </tr>`;
     }).join('');
   }
 
+  function renderHotLeads(crmRows, eventsData) {
+    const tbody = document.getElementById('hot-leads-tbody');
+    if (!tbody) return;
+
+    // Build events lookup: email -> {opens, clicks, lastSeen}
+    const evMap = {};
+    (eventsData || []).forEach(ev => {
+      const e = ev.email.toLowerCase();
+      if (!evMap[e]) evMap[e] = { opens: 0, clicks: 0, lastSeen: null };
+      if (ev.event_type === 'open')  evMap[e].opens  += ev.count;
+      if (ev.event_type === 'click') evMap[e].clicks += ev.count;
+      const ls = ev.last_seen;
+      if (!evMap[e].lastSeen || ls > evMap[e].lastSeen) evMap[e].lastSeen = ls;
+    });
+
+    const scored = crmRows
+      .map(r => ({ r, score: parseInt(r.engagement_score || '0') || 0 }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score);
+
+    if (!scored.length) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--gray-text);padding:24px;">Run update_scores.py to populate engagement scores.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = scored.map(({ r, score }, i) => {
+      const email   = (r.email || '').toLowerCase();
+      const ev      = evMap[email] || {};
+      const opens   = ev.opens  || 0;
+      const clicks  = ev.clicks || 0;
+      const lastAct = ev.lastSeen ? fmtTime(ev.lastSeen) : '—';
+      const days    = r.initial_sent_date
+        ? Math.floor((Date.now() - new Date(r.initial_sent_date)) / 86400000) : '—';
+
+      const scoreBadge = score >= 15
+        ? `<span style="background:#fee2e2;color:#991b1b;font-weight:700;padding:2px 10px;border-radius:20px;font-size:12px;">${score}</span>`
+        : score >= 5
+          ? `<span style="background:#fef3c7;color:#92400e;font-weight:700;padding:2px 10px;border-radius:20px;font-size:12px;">${score}</span>`
+          : `<span style="background:rgba(74,127,191,0.15);color:#2a5a8f;font-weight:700;padding:2px 10px;border-radius:20px;font-size:12px;">${score}</span>`;
+
+      return `<tr>
+        <td style="color:var(--gray-text);font-weight:600;">${i + 1}</td>
+        <td><strong>${fmt(r.owner_name || email)}</strong><br><span style="font-size:11px;color:var(--gray-text)">${email}</span></td>
+        <td>${scoreBadge}</td>
+        <td>${opens > 0 ? `<span class="eng-count">${opens}×</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td>${clicks > 0 ? `<span class="eng-count">${clicks}×</span>` : '<span style="color:var(--gray-mid)">—</span>'}</td>
+        <td class="eng-time">${lastAct}</td>
+        <td style="color:var(--gray-text)">${days !== '—' ? days + 'd' : '—'}</td>
+        <td>${abPill(r.ab_version || '')}</td>
+      </tr>`;
+    }).join('');
+  }
+
   function switchTab(name) {
-    document.querySelectorAll('.tab-pane, #tab-overview, #tab-engagement').forEach(el => {
+    document.querySelectorAll('.tab-pane, #tab-overview, #tab-engagement, #tab-hot-leads').forEach(el => {
       el.style.display = 'none';
     });
     document.getElementById('tab-' + name).style.display = '';
@@ -1145,18 +1252,19 @@
     renderBatchChart(rows, stats);
     renderActivity(rows);
     renderEngagement(rows, events);
+    renderHotLeads(rows, events);
   }
 
   async function loadData() {
     document.getElementById('loading-overlay').style.display = 'flex';
     try {
-      const ts       = Date.now();
+      const cb       = `_=${Date.now()}`;
       const campaign = document.getElementById('campaign-select').value;
-      const campQS   = campaign ? '&campaign=' + encodeURIComponent(campaign) : '';
+      const campQS   = campaign ? `&campaign=${encodeURIComponent(campaign)}` : '';
       const [crmResp, statsResp, eventsResp] = await Promise.all([
-        fetch('https://jp-tracker.onrender.com/crm?_='    + ts + campQS),
-        fetch('https://jp-tracker.onrender.com/stats?_='  + ts + campQS),
-        fetch('https://jp-tracker.onrender.com/events?_=' + ts + campQS).catch(() => null),
+        fetch(`https://jp-tracker.onrender.com/crm?${cb}${campQS}`),
+        fetch(`https://jp-tracker.onrender.com/stats?${cb}${campQS}`),
+        fetch(`https://jp-tracker.onrender.com/events?${cb}${campQS}`).catch(() => null),
       ]);
       const crmJson    = await crmResp.json();
       const statsJson  = statsResp.ok  ? await statsResp.json()  : {};
@@ -1174,7 +1282,7 @@
       console.error('Failed to load data:', e);
       document.getElementById('last-updated').textContent = 'Failed to load data';
       document.getElementById('activity-tbody').innerHTML =
-        `<tr><td colspan="5" style="text-align:center;color:#ef4444;padding:24px;">
+        `<tr><td colspan="6" style="text-align:center;color:#ef4444;padding:24px;">
           Could not load CRM data from Render.<br>
           <small style="color:var(--gray-text);">${e.message || ''}</small>
         </td></tr>`;
